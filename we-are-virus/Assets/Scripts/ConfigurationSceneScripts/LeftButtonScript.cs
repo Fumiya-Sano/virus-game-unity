@@ -20,9 +20,9 @@ public class LeftButtonScript : MonoBehaviour
            numOfPeople -= 1;
            PlayerManager script = configManager.GetComponent<PlayerManager>();  
            List<GameObject> list = script.playerList;
-           GameObject lastPlayer = list[numOfPeople - 3];
+           GameObject lastPlayer = list[numOfPeople];
            Destroy(lastPlayer);
-           list.RemoveAt(numOfPeople - 3);
+           list.RemoveAt(numOfPeople);
        }
        numOfPeopleText.text = numOfPeople.ToString();
    }

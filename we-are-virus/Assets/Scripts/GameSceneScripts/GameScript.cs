@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Sokoban : MonoBehaviour
+public class GameScript : MonoBehaviour
 {
     // タイルの種類
     private enum TileType
@@ -24,7 +24,7 @@ public class Sokoban : MonoBehaviour
         LEFT,  // 左
     }
 
-    private int playerNum = 4;  // プレイヤーの人数
+    private int playerNum = TurnPlayerManagerScript.getTotalPlayers();  // プレイヤーの人数
     public TextAsset stageFile;  // ステージ構造が記述されたテキストファイル
     
     private int rows; // 行数
@@ -39,6 +39,9 @@ public class Sokoban : MonoBehaviour
 
     private GameObject[] playerlist = new GameObject [8];  // プレイヤーのゲームオブジェクト
     private Vector2 middleOffset;  // 中心位置
+
+    public static int IsInitial;
+    public GameObject turnPlayer;
 
 
     // 各位置に存在するゲームオブジェクトを管理する連想配列
@@ -56,7 +59,16 @@ public class Sokoban : MonoBehaviour
     {
         LoadTileData();
         CreateStage();
-        CreatePlayerList();
+        if(IsInitial == 1)
+        {
+            InitialCreatePlayerList();
+        }
+        else
+        {
+            CreatePlayerList();
+        }
+        // ターンプレイヤーの取得
+        turnPlayer = playerlist[TurnPlayerManagerScript.getTurnPlayerNum()];
     }
 
     // Update is called once per frame
@@ -64,6 +76,27 @@ public class Sokoban : MonoBehaviour
     {
         
     }
+
+    public void OnClickUpButton()
+    {
+        TryMovePlayer(DirectionType.UP, turnPlayer);
+    }
+
+    public void OnClickRightButton()
+    {
+        TryMovePlayer(DirectionType.RIGHT, turnPlayer);
+    }
+
+    public void OnClickDownButton()
+    {
+        TryMovePlayer(DirectionType.DOWN, turnPlayer);
+    }
+
+    public void OnClickLeftButton()
+    {
+        TryMovePlayer(DirectionType.LEFT, turnPlayer);
+    }
+
 
     // タイル情報を読み込む
     private void LoadTileData()
@@ -98,7 +131,7 @@ public class Sokoban : MonoBehaviour
     }
 
     // プレイヤーリストの作成と配置
-    private void CreatePlayerList()
+    private void InitialCreatePlayerList()
     {
         for(int i = 1; i <= playerNum; i++)
         {
@@ -110,14 +143,40 @@ public class Sokoban : MonoBehaviour
 
             sr.sprite = playerSprite[i - 1];
 
-            sr.sortingOrder = 2;
+            sr.sortingOrder = 3;
+            int x = 0;
+            int y = 0;
+            int IsWithoutCover = 0;
+            while(IsWithoutCover == 0)
+            {
+                x = Random.Range(0, columns);
+                y = Random.Range(0, rows);
 
-            int x = Random.Range(0, columns);
-            int y = Random.Range(0, rows);
-
+                int IsSamePair = 0;
+                foreach(var pair in playerPosTable)
+                {
+                    if(pair.Value == new Vector2Int(x, y))
+                    {
+                        IsSamePair = 1;
+                    }
+                }
+                if(IsSamePair == 0)
+                {
+                    IsWithoutCover = 1;
+                }
+            }
             playerlist[i - 1].transform.position = GetDisplayPosition(x, y);
 
             playerPosTable.Add(playerlist[i-1], new Vector2Int(x, y));
+        }
+        IsInitial = 0;
+    }
+
+    public void CreatePlayerList()
+    {
+        foreach(var pair in playerPosTable)
+        {
+            pair.Key.transform.position = GetDisplayPosition(pair.Value.x, pair.Value.y);
         }
     }
 
@@ -148,6 +207,8 @@ public class Sokoban : MonoBehaviour
 
                 // タイルのスプライトを設定
                 sr.sprite = groundSprite;
+
+                sr.sortingOrder = 2;
 
                 // タイルの位置を設定
                 tile.transform.position = GetDisplayPosition(x, y);
@@ -212,35 +273,7 @@ public class Sokoban : MonoBehaviour
     }
     */
 
-    // 移動処理とその回数を管理する関数
-    private void Walk(GameObject player)
-    {
-        // 上矢印が押された場合
-        if (Input.GetKeyDown(KeyCode.UpArrow))
-        {
-            // プレイヤーが上に移動できるか検証
-            TryMovePlayer(DirectionType.UP, player);
-        }
-        // 右矢印が押された場合
-        else if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            // プレイヤーが右に移動できるか検証
-            TryMovePlayer(DirectionType.RIGHT, player);
-        }
-        // 下矢印が押された場合
-        else if (Input.GetKeyDown(KeyCode.DownArrow))
-        {
-            // プレイヤーが下に移動できるか検証
-            TryMovePlayer(DirectionType.DOWN, player);
-        }
-        // 左矢印が押された場合
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            // プレイヤーが左に移動できるか検証
-            TryMovePlayer(DirectionType.LEFT, player);
-        }
-
-    }
+    
 
     // 指定された方向にプレイヤーが移動できるか検証
     // 移動できる場合は移動する
