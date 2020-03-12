@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 
 public class StartButtonScript : MonoBehaviour
@@ -43,6 +42,8 @@ public class StartButtonScript : MonoBehaviour
         TurnPlayerManagerScript.setRoundNum(1);
         TurnPlayerManagerScript.setTotalPlayers(a);
         GameScript.IsInitial = 1;
+        GameScript.OnlyPositionList.Clear();
+        GameScript.posVirusTable.Clear();
         SceneManager.LoadScene("CheckPlayerScene");
     }
 

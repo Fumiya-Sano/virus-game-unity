@@ -9,19 +9,29 @@ public class GameScript : MonoBehaviour
     {
         NONE,  // 何もない
         GROUND,  //  地面
-        VIRUS_1,
-        VIRUS_2,
-        VIRUS_3,
-        VIRUS_4,
+    }
+
+    // ウイルスの種類
+    private enum VirusType
+    {
+        VIRUS_1 = 1,
+        VIRUS_2 = 2,
+        VIRUS_3 = 3,
+        VIRUS_4 = 4,
+        VIRUS_5 = 5,
+        VIRUS_6 = 6,
+        VIRUS_7 = 7,
+        VIRUS_8 = 8,
     }
 
     // 方向の種類
-    private enum DirectionType
+    private enum ActionType
     {
         UP,  // 上
         RIGHT,  //　右
         DOWN, 　// 下
         LEFT,  // 左
+        ATTACH_VIRUS,  // ウイルスをつける
     }
 
     private int playerNum = TurnPlayerManagerScript.getTotalPlayers();  // プレイヤーの人数
@@ -38,18 +48,24 @@ public class GameScript : MonoBehaviour
     public Sprite[] virusSprite;  // ウイルスに感染した地面のスプライト配列
 
     private GameObject[] playerlist = new GameObject [8];  // プレイヤーのゲームオブジェクト
+    public static List<Vector2Int> OnlyPositionList = new List<Vector2Int>();
+    private List<ActionType> actionHistoryList = new List<ActionType>();
     private Vector2 middleOffset;  // 中心位置
 
     public static int IsInitial;
     public GameObject turnPlayer;
 
+    public int countMove;
+    public int countAttachVirus;
+    private int IsSuccessAction;
+
 
     // 各位置に存在するゲームオブジェクトを管理する連想配列
     
-    private Dictionary<GameObject, Vector2Int> virusPosTable = new Dictionary<GameObject, Vector2Int>();
+    public static Dictionary<Vector2Int, int> posVirusTable = new Dictionary<Vector2Int, int>();
 
     // ゲームプレイヤーの位置を管理する連想配列
-    private Dictionary<GameObject, Vector2Int> playerPosTable = new Dictionary<GameObject, Vector2Int>();
+    public Dictionary<GameObject, Vector2Int> playerPosTable = new Dictionary<GameObject, Vector2Int>();
 
 
 
@@ -59,16 +75,21 @@ public class GameScript : MonoBehaviour
     {
         LoadTileData();
         CreateStage();
+        LoadMyVirus();
         if(IsInitial == 1)
         {
             InitialCreatePlayerList();
         }
         else
         {
+            Debug.Log("OK");
             CreatePlayerList();
         }
         // ターンプレイヤーの取得
-        turnPlayer = playerlist[TurnPlayerManagerScript.getTurnPlayerNum()];
+        turnPlayer = playerlist[TurnPlayerManagerScript.getTurnPlayerNum() - 1];
+
+        countMove = 0;
+        countAttachVirus = 0;
     }
 
     // Update is called once per frame
@@ -79,22 +100,115 @@ public class GameScript : MonoBehaviour
 
     public void OnClickUpButton()
     {
-        TryMovePlayer(DirectionType.UP, turnPlayer);
+        if(countMove < 3)
+        {   
+            IsSuccessAction = 0;
+            TryMovePlayer(ActionType.UP, turnPlayer);
+            if(IsSuccessAction == 1)
+            {
+                // 行動履歴に行動を追加
+                actionHistoryList.Add(ActionType.UP);
+                countMove += 1;
+            }
+        }
     }
 
     public void OnClickRightButton()
     {
-        TryMovePlayer(DirectionType.RIGHT, turnPlayer);
+        if(countMove < 3)
+        {
+            IsSuccessAction = 0;
+            TryMovePlayer(ActionType.RIGHT, turnPlayer);
+            if(IsSuccessAction == 1)
+            {
+                actionHistoryList.Add(ActionType.RIGHT);
+                countMove += 1;
+            }
+        }
     }
 
     public void OnClickDownButton()
     {
-        TryMovePlayer(DirectionType.DOWN, turnPlayer);
+        if(countMove < 3)
+        {
+            IsSuccessAction = 0;
+            TryMovePlayer(ActionType.DOWN, turnPlayer);
+            if(IsSuccessAction == 1)
+            {
+                actionHistoryList.Add(ActionType.DOWN);
+                countMove += 1;
+            }
+        }
     }
 
     public void OnClickLeftButton()
     {
-        TryMovePlayer(DirectionType.LEFT, turnPlayer);
+        if(countMove < 3)
+        {
+            IsSuccessAction = 0;
+            TryMovePlayer(ActionType.LEFT, turnPlayer);
+            if(IsSuccessAction == 1)
+            {
+                actionHistoryList.Add(ActionType.LEFT);
+                countMove += 1;
+            }
+        }
+    }
+
+    public void OnClickCenterButton()
+    {
+        if(1 <= countMove && countMove <= 3 && countAttachVirus == 0)  // 一歩でも歩いていたら
+        {
+            Vector2Int turnPlayerPos;
+            turnPlayerPos = playerPosTable[turnPlayer];
+            AttachVirus(turnPlayerPos, TurnPlayerManagerScript.getTurnPlayerNum());
+            countAttachVirus += 1;
+        }
+    }
+
+    public void OnClickOneStepBuckButton()
+    {
+        int NumActionList = actionHistoryList.Count;
+        if(NumActionList == 0)
+        {
+            return;
+        }
+        else
+        {
+            var lastAction = actionHistoryList[NumActionList - 1];
+            if(lastAction == ActionType.ATTACH_VIRUS)
+            {
+                return;
+            }
+            else
+            {
+                switch(lastAction)
+                {
+                    case ActionType.UP:
+                        TryMovePlayer(ActionType.DOWN, turnPlayer);
+                        actionHistoryList.RemoveAt(NumActionList - 1);
+                        countMove -= 1;
+                        break;
+                    case ActionType.RIGHT:
+                        TryMovePlayer(ActionType.LEFT, turnPlayer);
+                        actionHistoryList.RemoveAt(NumActionList - 1);
+                        countMove -= 1;
+                        break;
+                    case ActionType.DOWN:
+                        TryMovePlayer(ActionType.UP, turnPlayer);
+                        actionHistoryList.RemoveAt(NumActionList - 1);
+                        countMove -= 1;
+                        break;
+                    case ActionType.LEFT:
+                        TryMovePlayer(ActionType.RIGHT, turnPlayer);
+                        actionHistoryList.RemoveAt(NumActionList - 1);
+                        countMove -= 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
 
@@ -130,6 +244,25 @@ public class GameScript : MonoBehaviour
         }  
     }
 
+    // 自分のウイルスのタイルをロードする
+    private void LoadMyVirus()
+    {
+        int i = 1;
+        foreach(var pair in posVirusTable)
+        {
+            if(pair.Value == TurnPlayerManagerScript.getTurnPlayerNum())
+            {
+                GameObject myVirus = new GameObject("myVirus_" + i);
+                var sr = myVirus.AddComponent<SpriteRenderer>();
+                sr.sprite = virusSprite[TurnPlayerManagerScript.getTurnPlayerNum() - 1];
+                sr.sortingOrder = 3;
+                myVirus.transform.position = GetDisplayPosition(pair.Key.x, pair.Key.y);
+                i += 1;
+                Debug.Log("aaa" + pair.Key.x);
+            }
+        }
+    }
+
     // プレイヤーリストの作成と配置
     private void InitialCreatePlayerList()
     {
@@ -143,7 +276,7 @@ public class GameScript : MonoBehaviour
 
             sr.sprite = playerSprite[i - 1];
 
-            sr.sortingOrder = 3;
+            sr.sortingOrder = 4;
             int x = 0;
             int y = 0;
             int IsWithoutCover = 0;
@@ -168,15 +301,32 @@ public class GameScript : MonoBehaviour
             playerlist[i - 1].transform.position = GetDisplayPosition(x, y);
 
             playerPosTable.Add(playerlist[i-1], new Vector2Int(x, y));
+
+            OnlyPositionList.Add(new Vector2Int(x, y));
         }
         IsInitial = 0;
     }
 
     public void CreatePlayerList()
     {
-        foreach(var pair in playerPosTable)
+        int i = 1;
+        foreach(var pos in OnlyPositionList)
         {
-            pair.Key.transform.position = GetDisplayPosition(pair.Value.x, pair.Value.y);
+
+            var name = "player" + i;
+
+            playerlist[i - 1] = new GameObject(name);
+
+            var sr = playerlist[i - 1].AddComponent<SpriteRenderer>();
+
+            sr.sprite = playerSprite[i - 1];
+
+            sr.sortingOrder = 4;
+            
+            playerlist[i - 1].transform.position = GetDisplayPosition(pos.x, pos.y);
+
+            playerPosTable.Add(playerlist[i-1], new Vector2Int(pos.x, pos.y));
+            i += 1;
         }
     }
 
@@ -225,6 +375,7 @@ public class GameScript : MonoBehaviour
         y * -tileSize + middleOffset.y + 3
         );
     }
+    /*
     // 指定された位置に存在するウイルスを返します
     private GameObject GetVirusAtPosition(Vector2Int pos)
     {
@@ -239,6 +390,7 @@ public class GameScript : MonoBehaviour
         }
         return null;
     }
+    */
 
     // 指定された位置に存在するプレイヤーを返します
     private GameObject GetPlayerAtPosition(Vector2Int pos)
@@ -264,6 +416,21 @@ public class GameScript : MonoBehaviour
         }
         return false;
     }
+    
+    // 指定された位置に他のプレイヤーがいるならtrueを返す
+    public bool IsOtherPlayer(Vector2Int pos)
+    {
+        bool IsExist = false;
+        foreach(var pair in playerPosTable)
+        {
+            if(pair.Value == pos)
+            {
+                IsExist = true;
+            }
+        }
+        return IsExist;
+    }
+    
     /*
     // 指定された位置のタイルがウイルスに感染しているならtrueを返す
     private bool IsVirus(Vector2Int pos)
@@ -277,50 +444,92 @@ public class GameScript : MonoBehaviour
 
     // 指定された方向にプレイヤーが移動できるか検証
     // 移動できる場合は移動する
-    private void TryMovePlayer(DirectionType direction, GameObject player)
+    private void TryMovePlayer(ActionType direction, GameObject player)
     {
         // プレイヤーの現在地を取得
-        var currentPlayerPos = playerPosTable[player];  // 任意tのプレイヤーの現在地を取得
+        var currentPlayerPos = playerPosTable[player];  // 任意のプレイヤーの現在地を取得
 
         // プレイヤーの移動先の位置を計算
         var nextPlayerPos = GetNextPositionAlong(currentPlayerPos, direction);
 
-        // プレイヤーの移動先がステージ内ではない場合は無視
+        // プレイヤーの移動先がステージ内ではない場合無視
         if(!IsValidPosition(nextPlayerPos)) return;
+
+        // プレイヤーの移動先に他のプレイヤーがいる場合、無視
+        if(IsOtherPlayer(nextPlayerPos)) return;
 
         // プレイヤーの移動
         player.transform.position = GetDisplayPosition(nextPlayerPos.x, nextPlayerPos.y);
 
         // プレイヤーの位置を更新
         playerPosTable[player] = nextPlayerPos;
+
+        OnlyPositionList[TurnPlayerManagerScript.getTurnPlayerNum() - 1] = nextPlayerPos;
+
+        IsSuccessAction = 1;
+
     }
 
     // 指定された方向の位置を返す
-    private Vector2Int GetNextPositionAlong(Vector2Int pos, DirectionType direction)
+    private Vector2Int GetNextPositionAlong(Vector2Int pos, ActionType direction)
     {
         switch(direction)
         {
             // 上
-            case DirectionType.UP:
+            case ActionType.UP:
                 pos.y -= 1;
                 break;
             
             // 右
-            case DirectionType.RIGHT:
+            case ActionType.RIGHT:
                 pos.x += 1;
                 break;
             
             //　下
-            case DirectionType.DOWN:
+            case ActionType.DOWN:
                 pos.y += 1;
                 break;
 
             // 左
-            case DirectionType.LEFT:
+            case ActionType.LEFT:
                 pos.x -= 1;
                 break;
         }
         return pos;
     }
 
+    // 指定した場所に指定した人のウイルスをつける関数 他のウイルスがある場合は上書きする
+    private void AttachVirus(Vector2Int pos, int playerNum)
+    {
+        int IsSamePosVirus = 0;
+        GameObject attachedVirus;
+        foreach(var pair in posVirusTable)
+        {
+            if(pair.Key == pos)
+            {
+                IsSamePosVirus = 1;
+            }
+        }
+        if(IsSamePosVirus == 0)
+        {
+            posVirusTable.Add(pos, playerNum);
+            attachedVirus = new GameObject("attachedVirus");
+            var sr = attachedVirus.AddComponent<SpriteRenderer>();
+            sr.sprite = virusSprite[playerNum - 1];
+            sr.sortingOrder = 3;
+             attachedVirus.transform.position = GetDisplayPosition(pos.x, pos.y);
+             Debug.Log(pos);
+            
+        }
+        else
+        {
+            posVirusTable[pos] = playerNum;
+            attachedVirus = new GameObject("attachedVirus");
+            var sr = attachedVirus.AddComponent<SpriteRenderer>();
+            sr.sprite = virusSprite[playerNum - 1];
+            sr.sortingOrder = 3;
+            attachedVirus.transform.position = GetDisplayPosition(pos.x, pos.y);
+        }
+        actionHistoryList.Add(ActionType.ATTACH_VIRUS);
+    }
 }
